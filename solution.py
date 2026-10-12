@@ -60,6 +60,7 @@ class Solver:
         """
         Initialise any variables required before the start of tabular Q-learning.
         """
+        self.Q = {}
         #
         # TODO: Implement any initialisation for tabular Q-learning (e.g. creating your Q-table) here. This method is
         #  not timed, but it must not call perform_action (training belongs in ql_train_episode) and must finish
@@ -73,6 +74,21 @@ class Solver:
         """
         Run one episode of tabular Q-learning.
         """
+        s = self.get_init_state()
+        self.alpha = 0.5
+        while not self.is_game_over(s) or not self.is_solved(s):
+            action_set = self.get_valid_actions(s)
+            best = float("-inf")
+            for a in action_set:
+                if Q.get((s, a)) > best:
+                    best = Q.get((s, a))
+                    best_a = a
+            s2, r, err_msg = self.perform_action(s, best_a)
+            td = r + self.gamma*Q.get((s2, best_a)) - Q.get((s, a))
+            Q[(s2, a)] = Q.get((s, a)) + td*self.alpha
+            
+        
+        
         #
         # TODO: Implement a single training episode here: start from self.game_env.get_init_state() and repeatedly
         #  choose an action (e.g. epsilon-greedy), call self.game_env.perform_action and update your Q-values, until
