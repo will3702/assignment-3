@@ -61,7 +61,11 @@ class Solver:
         Initialise any variables required before the start of tabular Q-learning.
         """
         self.Q = {}
-        self.alpha = 0.1
+        self.N = {}
+        self.lava = set(self.game_env.lava_positions)   
+        self.launch = set(self.game_env.launch_positions)
+        self.valid = [[self.game_env.get_valid_actions(GameState(r, c, ())) for c in range(self.game_env.n_cols)]
+                      for r in range(self.game_env.n_rows)]
         #
         # TODO: Implement any initialisation for tabular Q-learning (e.g. creating your Q-table) here. This method is
         #  not timed, but it must not call perform_action (training belongs in ql_train_episode) and must finish
@@ -75,21 +79,31 @@ class Solver:
         """
         Run one episode of tabular Q-learning.
         """
-    
-        
-        
-        
-        s = self.get_init_state()
-        while not (self.is_game_over(s) or self.is_solved(s)):
-            action_set = self.get_valid_actions(s)
-            best = float("-inf")
-            for a in action_set:
-                if self.Q.get((s, a), 0.0) > best:
-                    best = self.Q.get((s, a))
-                    best_a = a
-            s2, r, err_msg = self.perform_action(s, best_a)
-            td = r + self.gamma*self.Q.get((s2, best_a), 0.0) - self.Q.get((s, a), 0.0)
-            self.Q[(s2, a)] = self.Q.get((s, a), 0.0) + td*self.alpha
+        progress = self.game_env.training_steps_used / self.game_env.training_step_budget
+        self.epsilon = max(0.02, 0.1 - 0.16 * progress)
+        s = self.game_env.get_init_state()
+        steps = 0
+        while not (self.game_env.is_game_over(s) or self.game_env.is_solved(s)) and steps < self.game_env.max_episode_steps:
+            action_set = self.valid[s.row][s.col]
+            best = max(self.Q.get((s, a), 0.0) for a in action_set)
+            best_actions = [a for a in action_set if self.Q.get((s, a), 0.0) == best]
+            best_a = random.choice(best_actions)
+            if self.Q.get((s, best_a), 0.0) > best:
+                best = self.Q.get((s, best_a), 0.0)
+            if random.random() < self.epsilon:
+                best_a = random.choice(action_set)
+            s2, r, err_msg = self.game_env.perform_action(s, best_a)
+            if self.game_env.is_game_over(s2) or self.game_env.is_solved(s2):
+                best_next = 0.0
+            else:
+                best_next = max(self.Q.get((s2, a2), 0.0) for a2 in self.valid[s2.row][s2.col])
+            n = self.N.get((s, best_a), 0) + 1
+            self.N[(s, best_a)] = n
+            alpha = max(0.1, 1 / n ** 0.5)
+            td = r + self.game_env.gamma*best_next - self.Q.get((s, best_a), 0.0)
+            self.Q[(s, best_a)] = self.Q.get((s, best_a), 0.0) + td*alpha
+            s = s2
+            steps += 1
 
             
         
@@ -112,14 +126,13 @@ class Solver:
         :param state: the current state
         :return: greedy action for the given state (element of GameEnv.ACTIONS)
         """
-        s = self.get_init_state()
-        while not (self.is_game_over(s) or self.is_solved(s)):
-            action_set = self.get_valid_actions(s)
-            best = float("-inf")
-            for a in action_set:
-                if self.Q.get((s, a), 0.0) > best
-                    best = self.Q.get((s, a))
-                    best_a = a
+        s = state
+        action_set = self.valid[s.row][s.col]
+        best = max(self.Q.get((s, a), 0.0) for a in action_set)
+        best_actions = [a for a in action_set if self.Q.get((s, a), 0.0) == best]
+        best_a = random.choice(best_actions)
+        
+
         return best_a
         #
         # TODO: Implement code to return the greedy action for the given state (based on your learned Q-values) here.
