@@ -144,18 +144,28 @@ class Solver:
         pass
 
     # === Feature-based Q-learning =====================================================================================
-
+    FQ_RISK_WEIGHTS = (0, 25, 100)   
+    FQ_SIDEWAYS = {'l': 'ud', 'r': 'ud', 'u': 'lr', 'd': 'lr'}    
+    FQ_DELTAS = {'l': (0, -1), 'r': (0, 1), 'u': (-1, 0), 'd': (1, 0)}
     def fq_initialise(self):
         """
         Initialise any variables required before the start of feature-based Q-learning.
         """
         #
-        # TODO: Implement any initialisation for feature-based Q-learning (e.g. initial weights, or pre-computing
-        #  information about the map that your features use) here. This method is not timed, so it is the place for
-        #  precomputation, but it must not call perform_action (training belongs in fq_train_episode) and must finish
-        #  within 30 seconds, or the phase scores zero.
-        #
-        # In order to ensure compatibility with tester, you should avoid adding additional arguments to this function.
+        self.valid = [[self.game_env.get_valid_actions(GameState(r, c, ())) for c in range(self.game_env.n_cols)]
+                      for r in range(self.game_env.n_rows)]
+        self.lava = set(self.game_env.lava_positions)   
+        self.launch = set(self.game_env.launch_positions)
+        landmarks = list(self.game_env.crystal_positions) + list(self.game_env.launch_positions)
+        start = self.game_env.get_init_state()
+        self.fq_h = [self.CostToGo(self.game_env, {p: self.fq_costs_to(p, lam) for p in landmarks}) for lam in self.FQ_RISK_WEIGHTS]
+        self.fq_worst = []  
+        self.fq_cache = {}  
+        for h in self.fq_h:
+            costs = [h.compute_heuristic(GameState(r, c, start.crystal_status)) for r in range(self.game_env.n_rows) for c in range(self.game_env.n_cols) if self.game_env.grid_data[r][c] != self.game_env.ROCK_TILE]
+            finite = [v for v in costs if v != float('inf')]
+            self.fq_worst.append(max(finite) if finite else 0.0)
+        self.w = np.zeros(len(self.fq_get_features(start, self.game_env.ACTIONS[0])))
         #
         pass
 
